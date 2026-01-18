@@ -177,7 +177,7 @@ This project is licensed under the MIT License.
 
 ## 📧 Contact
 
-Your Name - [@yourtwitter](https://twitter.com/yourtwitter)
+Your Name - [@yourtwitter]([https://twitter.com/yourtwitter](https://www.linkedin.com/in/ahmed-3-sayed/))
 
 Project Link: [https://github.com/AhmedSayedAbdelrazek/Chatbot-With-RAG](https://github.com/AhmedSayedAbdelrazek/Chatbot-With-RAG)
 
