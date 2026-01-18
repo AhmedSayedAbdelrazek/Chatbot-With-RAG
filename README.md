@@ -37,7 +37,7 @@ A full-stack AI chatbot application with Retrieval-Augmented Generation (RAG) ca
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/rag-chatbot.git
+git clone https://github.com/AhmedSayedAbdelrazek/Chatbot-With-RAG.git
 cd rag-chatbot
 ```
 
