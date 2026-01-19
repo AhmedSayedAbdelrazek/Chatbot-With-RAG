@@ -37,8 +37,8 @@ A full-stack AI chatbot application with Retrieval-Augmented Generation (RAG) ca
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/rag-chatbot.git
-cd rag-chatbot
+git clone https://github.com/AhmedSayedAbdelrazek/Chatbot-With-RAG.git
+cd chatbot-project
 ```
 
 ### 2. Install Ollama and Pull Llama 3.2
@@ -74,13 +74,12 @@ Simply open `chatbot_rag.html` in your web browser.
 ## 📁 Project Structure
 
 ```
-rag-chatbot/
+chatbot-project/
 ├── backend/
-│   ├── main.py              # FastAPI server with RAG
+│   ├── main_rag.py              # FastAPI server with RAG
 │   ├── requirements.txt     # Python dependencies
 │   └── uploads/             # Uploaded documents (auto-created)
 ├── chatbot_rag.html         # Frontend with RAG support
-├── chatbot.html             # Simple chat frontend
 ├── .gitignore
 └── README.md
 ```
@@ -117,7 +116,7 @@ rag-chatbot/
 
 ### Change the Model
 
-Edit `main.py` and modify:
+Edit `main_rag.py` and modify:
 
 ```python
 OLLAMA_MODEL = "llama3.2"  # Change to any Ollama model
@@ -125,7 +124,7 @@ OLLAMA_MODEL = "llama3.2"  # Change to any Ollama model
 
 ### Adjust Chunk Size
 
-In `main.py`, modify the text splitting parameters:
+In `main_rag.py`, modify the text splitting parameters:
 
 ```python
 def split_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50):
@@ -178,9 +177,9 @@ This project is licensed under the MIT License.
 
 ## 📧 Contact
 
-Your Name - [@yourtwitter](https://twitter.com/yourtwitter)
+Your Name - [@yourtwitter]([https://twitter.com/yourtwitter](https://www.linkedin.com/in/ahmed-3-sayed/))
 
-Project Link: [https://github.com/yourusername/rag-chatbot](https://github.com/yourusername/rag-chatbot)
+Project Link: [https://github.com/AhmedSayedAbdelrazek/Chatbot-With-RAG](https://github.com/AhmedSayedAbdelrazek/Chatbot-With-RAG)
 
 ---
 
