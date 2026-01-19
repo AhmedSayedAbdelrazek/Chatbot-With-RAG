@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
-.env
+../.env
 env/
 venv/
 ENV/
@@ -48,7 +48,7 @@ chroma_db/
 *.sqlite
 
 # Environment Variables
-.env
+../.env
 .env.local
 
 # Logs

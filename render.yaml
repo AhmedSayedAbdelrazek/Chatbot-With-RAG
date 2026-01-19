@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: rag-chatbot-backend
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: GROQ_API_KEY
+        sync: false  # You'll set this manually in Render dashboard
+    disk:
+      name: chatbot-data
+      mountPath: /opt/render/project/src/chroma_db
+      sizeGB: 1
