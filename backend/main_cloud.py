@@ -142,25 +142,14 @@ def extract_text_from_file(file_path: str, filename: str) -> str:
 # Serve frontend HTML
 @app.get("/")
 async def serve_frontend():
-    """Serve the chatbot interface"""
-    html_path = Path(__file__).parent / "chatbot_rag.html"
-    if html_path.exists():
-        return FileResponse(html_path)
-    else:
-        return {
-            "status": "online",
-            "message": "RAG Chatbot API (Groq Version)",
-            "model": "Llama 3.3 70B via Groq",
-            "api_configured": "Yes" if GROQ_API_KEY else "No - Please set GROQ_API_KEY",
-            "endpoints": {
-                "chat": "/chat",
-                "chat_stream": "/chat/stream",
-                "upload": "/upload",
-                "documents": "/documents",
-                "health": "/health"
-            }
-        }
+    # ✅ absolute path in Render container
+    html_path = Path("/opt/render/project/src/backend/chatbot_rag.html")
 
+    # ✅ fallback to local relative path (when running locally)
+    if not html_path.exists():
+        html_path = Path(__file__).parent / "chatbot_rag.html"
+
+    return FileResponse(html_path)
 
 @app.get("/health")
 async def health_check():
