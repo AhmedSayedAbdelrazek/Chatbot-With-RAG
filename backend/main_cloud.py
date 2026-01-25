@@ -40,10 +40,17 @@ os.makedirs(CHROMA_DB_PATH, exist_ok=True)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-# Initialize embedding model
-print("Loading embedding model...")
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-print("✅ Embedding model loaded")
+# Lazy-load embedding model (important for Render: avoids port-scan timeout)
+embedding_model = None
+
+def get_embedding_model():
+    global embedding_model
+    if embedding_model is None:
+        print("Loading embedding model (lazy)...")
+        embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        print("✅ Embedding model loaded")
+    return embedding_model
+
 
 # Initialize ChromaDB
 print(f"Initializing ChromaDB at {CHROMA_DB_PATH}...")
@@ -172,7 +179,7 @@ async def chat(request: ChatRequest):
     try:
         if request.use_rag:
             # RAG mode - search documents
-            query_embedding = embedding_model.encode(request.message).tolist()
+            query_embedding = get_embedding_model().encode(request.message).tolist()
 
             results = collection.query(
                 query_embeddings=[query_embedding],
@@ -225,7 +232,7 @@ async def chat_stream(request: ChatRequest):
         try:
             if request.use_rag:
                 # RAG mode - search documents
-                query_embedding = embedding_model.encode(request.message).tolist()
+                query_embedding = get_embedding_model().encode(request.message).tolist()
 
                 results = collection.query(
                     query_embeddings=[query_embedding],
@@ -292,8 +299,7 @@ async def upload_document(file: UploadFile = File(...)):
         chunks = split_text(text)
 
         for i, chunk in enumerate(chunks):
-            embedding = embedding_model.encode(chunk).tolist()
-
+            embedding = get_embedding_model().encode(chunk).tolist()
             collection.add(
                 embeddings=[embedding],
                 documents=[chunk],
