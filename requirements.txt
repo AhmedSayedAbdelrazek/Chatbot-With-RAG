@@ -3,6 +3,7 @@ uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 numpy==1.26.4
 chromadb==0.5.5
-sentence-transformers==2.2.2
+sentence-transformers==2.7.0
+huggingface_hub==0.20.3
 groq==0.4.2
 pypdf==3.17.1
