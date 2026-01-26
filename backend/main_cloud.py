@@ -31,8 +31,9 @@ app.add_middleware(
 )
 
 # Configuration
-UPLOAD_DIR = "uploads"
-CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
+BASE_DIR = Path(__file__).parent
+UPLOAD_DIR = str(BASE_DIR / "uploads")
+CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", str(BASE_DIR / "chroma_db"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(CHROMA_DB_PATH, exist_ok=True)
 
@@ -94,7 +95,7 @@ def query_groq(prompt: str, stream: bool = False):
         raise Exception(f"Error: {str(e)}")
 
 
-def split_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50):
+def split_text(text: str, chunk_size: int = 1200, chunk_overlap: int = 100):
     """Simple text splitter"""
     chunks = []
     start = 0
@@ -278,14 +279,21 @@ Answer:"""
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
     try:
+        print("UPLOAD: received:", file.filename)
         file_path = os.path.join(UPLOAD_DIR, file.filename)
 
         with open(file_path, "wb") as f:
             content = await file.read()
             f.write(content)
-
+        print("UPLOAD: saved to:", file_path)
         text = extract_text_from_file(file_path, file.filename)
+        print("UPLOAD: extracted chars:", len(text))
         chunks = split_text(text)
+        print("UPLOAD: chunks:", len(chunks))
+
+        MAX_CHUNKS = 80
+        chunks = chunks[:MAX_CHUNKS]
+        model = get_embedding_model()
 
         for i, chunk in enumerate(chunks):
             embedding = get_embedding_model().encode(chunk).tolist()
@@ -307,6 +315,7 @@ async def upload_document(file: UploadFile = File(...)):
         }
 
     except Exception as e:
+        print("UPLOAD ERROR:", repr(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
