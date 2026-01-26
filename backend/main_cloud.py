@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException , BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -139,6 +139,32 @@ def extract_text_from_file(file_path: str, filename: str) -> str:
     except Exception as e:
         raise Exception(f"Error extracting text: {str(e)}")
 
+def process_and_index_file(file_path: str, filename: str):
+    try:
+        print(f"BG: start processing {filename}", flush=True)
+
+        text = extract_text_from_file(file_path, filename)
+        chunks = split_text(text, chunk_size=1200, chunk_overlap=100)
+
+        # safety limit (Render free can die on huge docs)
+        MAX_CHUNKS = 80
+        chunks = chunks[:MAX_CHUNKS]
+
+        model = get_embedding_model()
+
+        for i, chunk in enumerate(chunks):
+            emb = model.encode(chunk).tolist()
+            collection.add(
+                embeddings=[emb],
+                documents=[chunk],
+                metadatas=[{"source": filename, "chunk": i}],
+                ids=[f"{filename}_{i}"],
+            )
+
+        print(f"BG: done {filename} chunks={len(chunks)}", flush=True)
+
+    except Exception as e:
+        print(f"BG ERROR {filename}: {repr(e)}", flush=True)
 
 # Serve frontend HTML
 @app.get("/")
@@ -277,46 +303,30 @@ Answer:"""
 
 
 @app.post("/upload")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     try:
-        print("UPLOAD: received:", file.filename)
+        print("UPLOAD: received:", file.filename, flush=True)
+
         file_path = os.path.join(UPLOAD_DIR, file.filename)
 
         with open(file_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
-        print("UPLOAD: saved to:", file_path)
-        text = extract_text_from_file(file_path, file.filename)
-        print("UPLOAD: extracted chars:", len(text))
-        chunks = split_text(text)
-        print("UPLOAD: chunks:", len(chunks))
+            f.write(await file.read())
 
-        MAX_CHUNKS = 80
-        chunks = chunks[:MAX_CHUNKS]
-        model = get_embedding_model()
+        print("UPLOAD: saved:", file_path, flush=True)
 
-        for i, chunk in enumerate(chunks):
-            embedding = get_embedding_model().encode(chunk).tolist()
-            collection.add(
-                embeddings=[embedding],
-                documents=[chunk],
-                metadatas=[{
-                    "source": file.filename,
-                    "chunk": i,
-                    "total_chunks": len(chunks)
-                }],
-                ids=[f"{file.filename}_{i}"]
-            )
+        # ✅ do heavy work in background
+        background_tasks.add_task(process_and_index_file, file_path, file.filename)
 
+        # ✅ respond immediately so no 502
         return {
             "filename": file.filename,
-            "message": f"Successfully processed {file.filename}",
-            "chunks": len(chunks)
+            "message": "Upload received. Processing started in background."
         }
 
     except Exception as e:
-        print("UPLOAD ERROR:", repr(e))
+        print("UPLOAD ERROR:", repr(e), flush=True)
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.get("/documents")
