@@ -1,367 +1,219 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>AI Chatbot with RAG</title>
     <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .animate-spin {
-            animation: spin 1s linear infinite;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
     </style>
 </head>
+
 <body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 h-screen overflow-hidden">
-    <div class="flex h-screen">
-        <!-- Sidebar -->
-        <div class="w-80 bg-slate-900/50 border-r border-slate-700/50 flex flex-col">
-            <!-- Sidebar Header -->
-            <div class="p-4 border-b border-slate-700/50">
-                <h2 class="text-lg font-semibold text-white mb-4">Document Library</h2>
 
-                <!-- Upload Button -->
-                <label class="block">
-                    <input type="file" id="fileInput" accept=".pdf,.txt,.docx" class="hidden">
-                    <div class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 cursor-pointer text-center transition-all">
-                        📄 Upload Document
-                    </div>
-                </label>
-            </div>
+<div class="flex h-screen">
 
-            <!-- Documents List -->
-            <div class="flex-1 overflow-y-auto p-4">
-                <div id="documentsList" class="space-y-2">
-                    <p class="text-slate-500 text-sm">No documents uploaded yet</p>
+    <!-- ================= SIDEBAR ================= -->
+    <div class="w-80 bg-slate-900/50 border-r border-slate-700/50 flex flex-col">
+
+        <div class="p-4 border-b border-slate-700/50">
+            <h2 class="text-lg font-semibold text-white mb-4">Document Library</h2>
+
+            <label class="block">
+                <input type="file" id="fileInput" accept=".pdf,.txt,.docx" class="hidden">
+                <div class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 cursor-pointer text-center">
+                    📄 Upload Document
                 </div>
-            </div>
+            </label>
+        </div>
 
-            <!-- RAG Toggle -->
-            <div class="p-4 border-t border-slate-700/50">
-                <label class="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" id="ragToggle" class="w-5 h-5 rounded">
-                    <div>
-                        <div class="text-white font-medium">Use RAG Mode</div>
-                        <div class="text-slate-400 text-xs">Answer from documents</div>
-                    </div>
-                </label>
-
-                <button id="clearDocs" class="mt-3 w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg px-4 py-2 text-sm transition-all">
-                    Clear All Documents
-                </button>
+        <div class="flex-1 overflow-y-auto p-4">
+            <div id="documentsList">
+                <p class="text-slate-500 text-sm">No documents uploaded yet</p>
             </div>
         </div>
 
-        <!-- Main Chat Area -->
-        <div class="flex-1 flex flex-col">
-            <!-- Header -->
-            <div class="bg-slate-800/50 border-b border-slate-700/50 backdrop-blur-sm">
-                <div class="px-6 py-4">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h1 class="text-xl font-semibold text-white">AI Assistant with RAG</h1>
-                                <p class="text-sm text-slate-400">Powered by Llama 3.2</p>
-                            </div>
-                        </div>
-
-                        <div id="ragIndicator" class="hidden bg-blue-600/20 border border-blue-500/30 rounded-lg px-3 py-1">
-                            <span class="text-blue-400 text-sm">🔍 RAG Active</span>
-                        </div>
-                    </div>
+        <div class="p-4 border-t border-slate-700/50">
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" id="ragToggle" class="w-5 h-5 rounded">
+                <div>
+                    <div class="text-white font-medium">Use RAG Mode</div>
+                    <div class="text-slate-400 text-xs">Answer from documents</div>
                 </div>
-            </div>
+            </label>
 
-            <!-- Messages -->
-            <div id="messages" class="flex-1 overflow-y-auto">
-                <div class="max-w-4xl mx-auto px-6 py-6 space-y-6">
-                    <div id="welcome" class="text-center py-12">
-                        <svg class="w-16 h-16 text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                        </svg>
-                        <h2 class="text-2xl font-semibold text-slate-300 mb-2">
-                            How can I help you today?
-                        </h2>
-                        <p class="text-slate-500">
-                            Upload documents and enable RAG mode to ask questions about your files!
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Input -->
-            <div class="bg-slate-800/50 border-t border-slate-700/50 backdrop-blur-sm">
-                <div class="max-w-4xl mx-auto px-6 py-4">
-                    <div class="flex gap-3">
-                        <input
-                            type="text"
-                            id="messageInput"
-                            placeholder="Type your message..."
-                            class="flex-1 bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
-                        />
-                        <button
-                            id="sendButton"
-                            class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-6 py-3 font-medium transition-all flex items-center gap-2"
-                        >
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                            </svg>
-                            Send
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <button id="clearDocs" class="mt-3 w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg px-4 py-2 text-sm">
+                Clear All Documents
+            </button>
         </div>
     </div>
 
-    <script>
-        let isLoading = false;
-        const messagesDiv = document.getElementById('messages');
-        const messageInput = document.getElementById('messageInput');
-        const sendButton = document.getElementById('sendButton');
-        const welcome = document.getElementById('welcome');
-        const fileInput = document.getElementById('fileInput');
-        const documentsList = document.getElementById('documentsList');
-        const ragToggle = document.getElementById('ragToggle');
-        const ragIndicator = document.getElementById('ragIndicator');
-        const clearDocsBtn = document.getElementById('clearDocs');
+    <!-- ================= CHAT ================= -->
+    <div class="flex-1 flex flex-col">
 
-        // Update RAG indicator
-        ragToggle.addEventListener('change', () => {
-            if (ragToggle.checked) {
-                ragIndicator.classList.remove('hidden');
-            } else {
-                ragIndicator.classList.add('hidden');
-            }
-        });
-
-        // File upload
-        fileInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-                alert(`✅ ${result.filename} uploaded! (${result.chunks} chunks)`);
-                loadDocuments();
-            } catch (error) {
-                alert('❌ Upload failed: ' + error.message);
-            }
-
-            fileInput.value = '';
-        });
-
-        // Load documents
-        async function loadDocuments() {
-            try {
-                const response = await fetch('/documents');
-                const data = await response.json();
-
-                if (data.documents.length === 0) {
-                    documentsList.innerHTML = '<p class="text-slate-500 text-sm">No documents uploaded yet</p>';
-                } else {
-                    documentsList.innerHTML = data.documents.map(doc => `
-                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-lg p-3">
-                            <div class="flex items-center gap-2">
-                                <span class="text-2xl">📄</span>
-                                <span class="text-white text-sm">${doc}</span>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-            } catch (error) {
-                console.error('Failed to load documents:', error);
-            }
-        }
-
-        // Clear documents
-        clearDocsBtn.addEventListener('click', async () => {
-            if (!confirm('Clear all documents?')) return;
-
-            try {
-                await fetch('/documents', { method: 'DELETE' });
-                alert('✅ All documents cleared');
-                loadDocuments();
-            } catch (error) {
-                alert('❌ Failed to clear documents');
-            }
-        });
-
-        function addMessage(role, content) {
-            if (welcome) {
-                welcome.remove();
-            }
-
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `flex gap-4 ${role === 'user' ? 'justify-end' : 'justify-start'}`;
-
-            if (role === 'assistant') {
-                messageDiv.innerHTML = `
-                    <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                        </svg>
-                    </div>
-                    <div class="max-w-2xl rounded-2xl px-4 py-3 bg-slate-800/50 text-slate-100 border border-slate-700/50">
-                        <p class="whitespace-pre-wrap message-content">${content}</p>
-                    </div>
-                `;
-            } else {
-                messageDiv.innerHTML = `
-                    <div class="max-w-2xl rounded-2xl px-4 py-3 bg-blue-600 text-white">
-                        <p class="whitespace-pre-wrap">${content}</p>
-                    </div>
-                    <div class="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                        </svg>
-                    </div>
-                `;
-            }
-
-            messagesDiv.querySelector('.max-w-4xl').appendChild(messageDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            return messageDiv;
-        }
-
-        function addSources(sources) {
-            const sourcesDiv = document.createElement('div');
-            sourcesDiv.className = 'flex gap-4 justify-start mb-4';
-            sourcesDiv.innerHTML = `
-                <div class="w-8 h-8"></div>
-                <div class="max-w-2xl bg-blue-600/10 border border-blue-500/30 rounded-xl px-4 py-3">
-                    <p class="text-blue-400 font-medium mb-2 text-sm">📚 Sources:</p>
-                    ${sources.map(s => `
-                        <div class="text-slate-300 text-xs mb-1">
-                            • ${s.source} (chunk ${s.chunk})
-                        </div>
-                    `).join('')}
+        <div class="bg-slate-800/50 border-b border-slate-700/50 px-6 py-4 flex justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white">
+                    🤖
                 </div>
-            `;
-            messagesDiv.querySelector('.max-w-4xl').appendChild(sourcesDiv);
-        }
-
-        function showLoading() {
-            const loadingDiv = document.createElement('div');
-            loadingDiv.id = 'loading';
-            loadingDiv.className = 'flex gap-4';
-            loadingDiv.innerHTML = `
-                <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
+                <div>
+                    <h1 class="text-xl font-semibold text-white">AI Assistant with RAG</h1>
+                    <p class="text-sm text-slate-400">Llama 3.3 via Groq</p>
                 </div>
-                <div class="bg-slate-800/50 border border-slate-700/50 rounded-2xl px-4 py-3">
-                    <p class="text-slate-400">Thinking...</p>
+            </div>
+
+            <div id="ragIndicator" class="hidden bg-blue-600/20 border border-blue-500/30 rounded-lg px-3 py-1">
+                <span class="text-blue-400 text-sm">🔍 RAG Active</span>
+            </div>
+        </div>
+
+        <div id="messages" class="flex-1 overflow-y-auto">
+            <div class="max-w-4xl mx-auto px-6 py-6 space-y-6">
+                <div id="welcome" class="text-center py-12 text-slate-400">
+                    Upload documents and start chatting 🚀
                 </div>
-            `;
-            messagesDiv.querySelector('.max-w-4xl').appendChild(loadingDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
+            </div>
+        </div>
 
-        function removeLoading() {
-            const loading = document.getElementById('loading');
-            if (loading) loading.remove();
-        }
+        <div class="bg-slate-800/50 border-t border-slate-700/50 px-6 py-4">
+            <div class="flex gap-3 max-w-4xl mx-auto">
+                <input id="messageInput"
+                       class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white"
+                       placeholder="Type your message..." />
+                <button id="sendButton"
+                        class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-6 py-3">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
-        async function sendMessage() {
-            const message = messageInput.value.trim();
-            if (!message || isLoading) return;
+<script>
+/* ================= CONFIG ================= */
 
-            isLoading = true;
-            messageInput.value = '';
-            messageInput.disabled = true;
-            sendButton.disabled = true;
+// Uses Render URL automatically
+const API_BASE = window.location.origin;
 
-            addMessage('user', message);
-            showLoading();
+let isLoading = false;
 
-            try {
-                const response = await fetch('/chat/stream', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: message,
-                        use_rag: ragToggle.checked
-                    })
-                });
+/* ================= ELEMENTS ================= */
+const messagesDiv = document.querySelector("#messages .max-w-4xl");
+const messageInput = document.getElementById("messageInput");
+const sendButton = document.getElementById("sendButton");
+const welcome = document.getElementById("welcome");
+const fileInput = document.getElementById("fileInput");
+const documentsList = document.getElementById("documentsList");
+const ragToggle = document.getElementById("ragToggle");
+const ragIndicator = document.getElementById("ragIndicator");
+const clearDocsBtn = document.getElementById("clearDocs");
 
-                removeLoading();
-                const messageDiv = addMessage('assistant', '');
-                const contentEl = messageDiv.querySelector('.message-content');
+/* ================= RAG TOGGLE ================= */
+ragToggle.addEventListener("change", () => {
+    ragIndicator.classList.toggle("hidden", !ragToggle.checked);
+});
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let sourcesShown = false;
+/* ================= UPLOAD ================= */
+fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
 
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
+    const fd = new FormData();
+    fd.append("file", file);
 
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
+    try {
+        const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd });
+        if (!res.ok) throw new Error(await res.text());
+        const json = await res.json();
 
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = line.slice(6);
-                            if (data === '[DONE]') continue;
-
-                            try {
-                                const parsed = JSON.parse(data);
-
-                                if (parsed.sources && !sourcesShown) {
-                                    addSources(parsed.sources);
-                                    sourcesShown = true;
-                                }
-
-                                if (parsed.content) {
-                                    contentEl.textContent += parsed.content;
-                                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                                }
-                            } catch (e) {
-                                console.error('Parse error:', e);
-                            }
-                        }
-                    }
-                }
-            } catch (error) {
-                removeLoading();
-                addMessage('assistant', 'Sorry, I encountered an error. Please make sure the backend is running.');
-                console.error('Error:', error);
-            } finally {
-                isLoading = false;
-                messageInput.disabled = false;
-                sendButton.disabled = false;
-                messageInput.focus();
-            }
-        }
-
-        sendButton.addEventListener('click', sendMessage);
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-
-        // Load documents on page load
+        alert(`✅ ${json.filename}\n${json.message}`);
         loadDocuments();
-        messageInput.focus();
-    </script>
+        setTimeout(loadDocuments, 3000);
+    } catch (e) {
+        alert("❌ Upload failed: " + e.message);
+    }
+    fileInput.value = "";
+});
+
+/* ================= DOCUMENTS ================= */
+async function loadDocuments() {
+    try {
+        const res = await fetch(`${API_BASE}/documents`);
+        const data = await res.json();
+        documentsList.innerHTML = data.documents.length
+            ? data.documents.map(d => `<div class="text-white text-sm">📄 ${d}</div>`).join("")
+            : `<p class="text-slate-500 text-sm">No documents uploaded yet</p>`;
+    } catch {}
+}
+
+clearDocsBtn.onclick = async () => {
+    if (!confirm("Clear all documents?")) return;
+    await fetch(`${API_BASE}/documents`, { method: "DELETE" });
+    loadDocuments();
+};
+
+/* ================= CHAT ================= */
+function addMessage(role, text) {
+    welcome?.remove();
+    const div = document.createElement("div");
+    div.className = role === "user" ? "text-right" : "text-left";
+    div.innerHTML = `<div class="inline-block p-3 rounded-xl ${
+        role === "user" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-200"
+    }"><span class="msg"></span></div>`;
+    div.querySelector(".msg").textContent = text;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    return div.querySelector(".msg");
+}
+
+/* ================= STREAM ================= */
+async function sendMessage() {
+    const msg = messageInput.value.trim();
+    if (!msg || isLoading) return;
+
+    isLoading = true;
+    messageInput.value = "";
+    addMessage("user", msg);
+    const output = addMessage("assistant", "");
+
+    const res = await fetch(`${API_BASE}/chat/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg, use_rag: ragToggle.checked })
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const events = buffer.split("\n\n");
+        buffer = events.pop();
+
+        for (const evt of events) {
+            const line = evt.replace("data: ", "").trim();
+            if (line === "[DONE]") continue;
+            try {
+                const json = JSON.parse(line);
+                if (json.content) output.textContent += json.content;
+            } catch {}
+        }
+    }
+    isLoading = false;
+}
+
+/* ================= EVENTS ================= */
+sendButton.onclick = sendMessage;
+messageInput.onkeypress = e => { if (e.key === "Enter") sendMessage(); };
+loadDocuments();
+</script>
+
 </body>
 </html>
