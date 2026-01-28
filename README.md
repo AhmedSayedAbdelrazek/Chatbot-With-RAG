@@ -5,6 +5,7 @@ A full-stack AI chatbot application with Retrieval-Augmented Generation (RAG) ca
 ## ✨ Features
 
 - 💬 **Real-time Chat** - Streaming responses with Llama 3.2
+- 🧠 **Conversation Memory** – Session-based chat history for contextual, multi-turn conversations
 - 📚 **RAG Support** - Upload and query your documents (PDF, DOCX, TXT)
 - 🔍 **Semantic Search** - Find relevant information using vector embeddings
 - 🎨 **Modern UI** - Clean, responsive interface
@@ -111,7 +112,21 @@ chatbot-project/
 - "What were the action items?"
 - "Who is responsible for the marketing campaign?"
 - "When is the next deadline?"
+## 🧠 Conversation Memory
 
+The chatbot supports **session-based conversation memory**, allowing it to remember previous messages and respond with proper context during multi-turn conversations.
+
+### How it works
+- Each browser session is assigned a unique `session_id`
+- The backend stores the last **N user–assistant messages** per session
+- Conversation history is injected into the LLM prompt automatically
+- Memory works in both **Normal Chat** and **RAG Mode**
+
+### Example
+- User: My name is Ahmed 
+- Assistant: Nice to meet you, Ahmed
+- User: What is my name?
+- Assistant: Your name is Ahmed
 ## 🔧 Configuration
 
 ### Change the Model
