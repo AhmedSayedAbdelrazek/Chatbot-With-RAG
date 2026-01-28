@@ -14,7 +14,7 @@ import json
 from dotenv import load_dotenv
 from pathlib import Path
 from groq import Groq
-
+from collections import defaultdict, deque
 # Load environment variables from .env file in parent directory
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
@@ -40,7 +40,7 @@ os.makedirs(CHROMA_DB_PATH, exist_ok=True)
 # Groq Configuration (FREE and FAST!)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
-
+MAX_TURNS = int(os.getenv("MAX_TURNS", "10"))  # keep last 10 user+assistant messages
 # Lazy-load embedding model (important for Render: avoids port-scan timeout)
 embedding_model = None
 
@@ -52,6 +52,18 @@ def get_embedding_model():
         print("✅ Embedding model loaded")
     return embedding_model
 
+# session_id -> deque of messages [{"role": "...", "content": "..."}]
+SESSION_HISTORY = defaultdict(lambda: deque(maxlen=MAX_TURNS * 2))
+
+def get_history(session_id: Optional[str]):
+    if not session_id:
+        return []
+    return list(SESSION_HISTORY[session_id])
+
+def add_to_history(session_id: Optional[str], role: str, content: str):
+    if not session_id:
+        return
+    SESSION_HISTORY[session_id].append({"role": role, "content": content})
 
 # Initialize ChromaDB
 print(f"Initializing ChromaDB at {CHROMA_DB_PATH}...")
@@ -68,9 +80,9 @@ except:
 class ChatRequest(BaseModel):
     message: str
     use_rag: bool = False
+    session_id: Optional[str] = None
 
-
-def query_groq(prompt: str, stream: bool = False):
+def query_groq(messages, stream: bool = False):
     """Query Groq API (FREE Llama 3 models!)"""
     if not groq_client:
         raise Exception("GROQ_API_KEY not configured")
@@ -78,18 +90,12 @@ def query_groq(prompt: str, stream: bool = False):
     try:
         completion = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",  # FREE Llama 3.3 70B!
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0.7,
             max_tokens=1024,
             stream=stream
         )
-
-        if stream:
-            return completion
-        else:
-            return completion.choices[0].message.content
+        return completion
     except Exception as e:
         print(f"Groq API error: {e}")
         raise Exception(f"Error: {str(e)}")
@@ -214,14 +220,21 @@ Context:
 Question: {request.message}
 
 Answer:"""
+                add_to_history(request.session_id, "user", request.message)
 
-                response = query_groq(prompt)
+                messages = [
+                    {"role": "system",
+                     "content": "You are a helpful assistant. Use ONLY the provided context. If not found, say you don't know."},
+                    {"role": "system", "content": f"Context:\n{context}"},
+                    *get_history(request.session_id),
+                    {"role": "user", "content": request.message},
+                ]
 
-                return {
-                    "response": response,
-                    "sources": sources,
-                    "mode": "rag"
-                }
+                completion = query_groq(messages, stream=False)
+                response = completion.choices[0].message.content
+
+                add_to_history(request.session_id, "assistant", response)
+
             else:
                 return {
                     "response": "No relevant documents found. Please upload documents first or disable RAG mode.",
@@ -230,11 +243,18 @@ Answer:"""
                 }
         else:
             # Normal chat mode
-            response = query_groq(request.message)
-            return {
-                "response": response,
-                "mode": "normal"
-            }
+            add_to_history(request.session_id, "user", request.message)
+
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant. Keep answers concise and clear."},
+                *get_history(request.session_id),
+                {"role": "user", "content": request.message},
+            ]
+
+            completion = query_groq(messages, stream=False)
+            response = completion.choices[0].message.content
+
+            add_to_history(request.session_id, "assistant", response)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -271,29 +291,63 @@ Question: {request.message}
 
 Answer:"""
 
-                    # Stream from Groq
-                    stream = query_groq(prompt, stream=True)
+                    # ✅ Add user message to memory
+                add_to_history(request.session_id, "user", request.message)
 
-                    for chunk in stream:
-                        if chunk.choices[0].delta.content:
-                            content = chunk.choices[0].delta.content
-                            yield f"data: {json.dumps({'content': content})}\n\n"
+                messages = [
+                    {"role": "system", "content": "Use ONLY the provided context. If not found, say you don't know."},
+                    {"role": "system", "content": f"Context:\n{context}"},
+                    *get_history(request.session_id),
+                    {"role": "user", "content": request.message},
+                ]
 
-                    yield f"data: [DONE]\n\n"
+                stream = query_groq(messages, stream=True)
+
+                assistant_text = ""
+
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        assistant_text += content
+                        yield f"data: {json.dumps({'content': content})}\n\n"
+
+                # ✅ Save assistant response in memory
+                add_to_history(request.session_id, "assistant", assistant_text)
+
+                yield f"data: [DONE]\n\n"
+
                 else:
                     error_msg = "No relevant documents found. Please upload documents first or disable RAG mode."
                     yield f"data: {json.dumps({'content': error_msg})}\n\n"
                     yield f"data: [DONE]\n\n"
             else:
                 # Normal chat mode - stream from Groq
-                stream = query_groq(request.message, stream=True)
+                # ✅ Add user message to memory
+                add_to_history(request.session_id, "user", request.message)
+
+                # ✅ Build messages with memory
+                messages = [
+                    {"role": "system", "content": "You are a helpful assistant. Keep answers concise and clear."},
+                    *get_history(request.session_id),
+                    {"role": "user", "content": request.message},
+                ]
+
+                # ✅ Stream from Groq
+                stream = query_groq(messages, stream=True)
+
+                assistant_text = ""
 
                 for chunk in stream:
                     if chunk.choices[0].delta.content:
                         content = chunk.choices[0].delta.content
+                        assistant_text += content
                         yield f"data: {json.dumps({'content': content})}\n\n"
 
+                # ✅ Save assistant response in memory
+                add_to_history(request.session_id, "assistant", assistant_text)
+
                 yield f"data: [DONE]\n\n"
+
 
         except Exception as e:
             yield f"data: {json.dumps({'content': f'Error: {str(e)}'})}\n\n"

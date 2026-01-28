@@ -132,6 +132,7 @@
         const ragToggle = document.getElementById('ragToggle');
         const ragIndicator = document.getElementById('ragIndicator');
         const clearDocsBtn = document.getElementById('clearDocs');
+        const SESSION_KEY = "rag_chat_session_id";
 
         // Update RAG indicator
         ragToggle.addEventListener('change', () => {
@@ -141,7 +142,13 @@
                 ragIndicator.classList.add('hidden');
             }
         });
+        // --- Session ID for conversation memory ---
 
+          let sessionId = localStorage.getItem(SESSION_KEY);
+          if (!sessionId) {
+              sessionId = crypto.randomUUID();
+              localStorage.setItem(SESSION_KEY, sessionId);
+          }
         // File upload
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -297,7 +304,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: message,
-                        use_rag: ragToggle.checked
+                        use_rag: ragToggle.checked,
+                        session_id: sessionId
                     })
                 });
 
