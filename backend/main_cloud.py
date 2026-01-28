@@ -291,31 +291,15 @@ Question: {request.message}
 
 Answer:"""
 
-                    # ✅ Add user message to memory
-                add_to_history(request.session_id, "user", request.message)
+                    # Stream from Groq
+                    stream = query_groq(prompt, stream=True)
 
-                messages = [
-                    {"role": "system", "content": "Use ONLY the provided context. If not found, say you don't know."},
-                    {"role": "system", "content": f"Context:\n{context}"},
-                    *get_history(request.session_id),
-                    {"role": "user", "content": request.message},
-                ]
+                    for chunk in stream:
+                        if chunk.choices[0].delta.content:
+                            content = chunk.choices[0].delta.content
+                            yield f"data: {json.dumps({'content': content})}\n\n"
 
-                stream = query_groq(messages, stream=True)
-
-                assistant_text = ""
-
-                for chunk in stream:
-                    if chunk.choices[0].delta.content:
-                        content = chunk.choices[0].delta.content
-                        assistant_text += content
-                        yield f"data: {json.dumps({'content': content})}\n\n"
-
-                # ✅ Save assistant response in memory
-                add_to_history(request.session_id, "assistant", assistant_text)
-
-                yield f"data: [DONE]\n\n"
-
+                    yield f"data: [DONE]\n\n"
                 else:
                     error_msg = "No relevant documents found. Please upload documents first or disable RAG mode."
                     yield f"data: {json.dumps({'content': error_msg})}\n\n"
