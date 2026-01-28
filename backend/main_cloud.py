@@ -415,6 +415,13 @@ async def clear_documents():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/memory/{session_id}")
+async def clear_memory(session_id: str):
+    """Clear conversation memory for a specific session."""
+    if session_id in SESSION_HISTORY:
+        SESSION_HISTORY.pop(session_id, None)
+    return {"message": "Memory cleared", "session_id": session_id}
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
