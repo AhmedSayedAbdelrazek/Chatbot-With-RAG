@@ -1,33 +1,20 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - chatbot-network
-    restart: unless-stopped
-
   backend:
     build: .
     container_name: chatbot-backend
     ports:
       - "8000:8000"
-    depends_on:
-      - ollama
     environment:
-      - OLLAMA_URL=http://ollama:11434/api/generate
-    networks:
-      - chatbot-network
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - CHROMA_DB_PATH=/app/backend/chroma_db
+      - MAX_TURNS=10
+    volumes:
+      - chroma_data:/app/backend/chroma_db
+      - uploads_data:/app/backend/uploads
     restart: unless-stopped
 
 volumes:
-  ollama_data:
-
-networks:
-  chatbot-network:
-    driver: bridge
+  chroma_data:
+  uploads_data:
