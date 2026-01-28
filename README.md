@@ -1,17 +1,33 @@
-# 🤖 RAG-Powered Chatbot with Llama 3.2
+# 🤖 RAG-Powered Chatbot with Llama 3 (Groq) – Dockerized
 
-A full-stack AI chatbot application with Retrieval-Augmented Generation (RAG) capabilities, built with FastAPI, Ollama, and ChromaDB.
+A **production-ready AI chatbot** with **Retrieval-Augmented Generation (RAG)** built using **FastAPI**, **ChromaDB**, and **Llama 3.3 (70B) via Groq**, fully containerized with Docker and persistent storage.
 
 ## ✨ Features
 
 - 💬 **Real-time Chat** - Streaming responses with Llama 3.2
-- 🧠 **Conversation Memory** – Session-based chat history for contextual, multi-turn conversations
+- 🧠 **Conversation Memory** –  Session-based conversation memory (multi-turn)
 - 📚 **RAG Support** - Upload and query your documents (PDF, DOCX, TXT)
 - 🔍 **Semantic Search** - Find relevant information using vector embeddings
 - 🎨 **Modern UI** - Clean, responsive interface
-- 🚀 **100% Local** - No API costs, runs entirely on your machine
-- 📄 **Multi-format Support** - PDF, Word documents, and text files
+- 🐳 **Docker & Docker Compose** - Support
+- ❤️ Health check endpoint for production monitoring
+- ⚡ Ultra-fast inference via Groq (Llama 3.3 70B)
+## 🏗️ Architecture
 
+
+```
+Client
+|
+v
+FastAPI Backend
+├── Groq (Llama 3.3 70B)
+├── Sentence-Transformers
+├── ChromaDB (Vector Store)
+└── Docker Volumes (Persistence)
+
+```
+
+---
 ## 🛠️ Tech Stack
 
 **Backend:**
@@ -19,21 +35,32 @@ A full-stack AI chatbot application with Retrieval-Augmented Generation (RAG) ca
 - Ollama - Local LLM runtime
 - ChromaDB - Vector database
 - Sentence Transformers - Text embeddings
+- Groq SDK
+- httpx
+
+**AI Model**
+- Llama 3.3 70B (Groq)
+
+**Infrastructure**
+- Docker
+- Docker Compose
 
 **Frontend:**
 - Pure HTML/CSS/JavaScript
 - No framework dependencies
-
-**AI Model:**
-- Llama 3.2 (via Ollama)
+---
 
 ## 📋 Prerequisites
 
+- Docker
+- Docker Compose
+- Groq API Key (https://console.groq.com)
 - Python 3.8 or higher
 - Ollama installed ([Download here](https://ollama.ai))
 - Git
 
-## 🚀 Installation
+---
+## 🚀 Run with Docker
 
 ### 1. Clone the Repository
 
@@ -42,46 +69,70 @@ git clone https://github.com/AhmedSayedAbdelrazek/Chatbot-With-RAG.git
 cd chatbot-project
 ```
 
-### 2. Install Ollama and Pull Llama 3.2
+### 2. Create .env
+
+```env
+GROQ_API_KEY=your_groq_api_key_here
+```
+### 3. Build & run
 
 ```bash
-# Install Ollama from https://ollama.ai
-# Then pull the model:
-ollama pull llama3.2
+docker compose up --build
 ```
+- The server will start on `http://localhost:8000`
+- Swagger Docs: `http://localhost:8000/docs`
+- Health Check: `http://localhost:8000/health`
 
-### 3. Install Python Dependencies
-
-```bash
-cd backend
-pip install -r requirements.txt
+### Health Check
+```http
+GET /health
 ```
-
-## 🎯 Usage
-
-### Start the Backend Server
-
-```bash
-cd backend
-python main.py
+Example response:
+``` json
+{
+  "status": "healthy",
+  "groq_configured": true,
+  "chromadb_initialized": true,
+  "documents_count": 0,
+  "model": "llama-3.3-70b-versatile"
+}
 ```
+### 📄 RAG Flow
+- Upload documents (PDF / DOCX / TXT)
+- Text is chunked and embedded
+- Stored in ChromaDB
+- User query → semantic search
+- Context injected into LLM
+- Grounded response generated
 
-The server will start on `http://localhost:8000`
+### 🧠 Conversation Memory
+- Session-based memory per user
+- Stores last N turns
+- Automatically injected into prompts
+- Works in chat & RAG mode
 
-### Open the Frontend
+Example:
+```sql
+User: My name is Ahmed
+Assistant: Nice to meet you, Ahmed
+User: What is my name?
+Assistant: Your name is Ahmed
 
-Simply open `chatbot_rag.html` in your web browser.
+```
 
 ## 📁 Project Structure
 
-```
+```bash
 chatbot-project/
 ├── backend/
-│   ├── main_rag.py              # FastAPI server with RAG
-│   ├── requirements.txt     # Python dependencies
-│   └── uploads/             # Uploaded documents (auto-created)
-├── chatbot_rag.html         # Frontend with RAG support
+│   ├── main_cloud.py          # FastAPI server with RAG
+│   ├── chatbot_rag.html       # Frontend with RAG support
+│   ├── chroma_db/
+│   └── uploads/               # Uploaded documents (auto-created)
 ├── .gitignore
+├── Dockerfile
+├── .env
+├── requirements.txt           # Python dependencies
 └── README.md
 ```
 
@@ -139,7 +190,7 @@ OLLAMA_MODEL = "llama3.2"  # Change to any Ollama model
 
 ### Adjust Chunk Size
 
-In `main_rag.py`, modify the text splitting parameters:
+In `main_cloud.py`, modify the text splitting parameters:
 
 ```python
 def split_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50):
@@ -175,10 +226,6 @@ pip install -r requirements.txt --force-reinstall
 - `DELETE /documents` - Clear all documents
 - `GET /` - Health check
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ## 📄 License
 
 This project is licensed under the MIT License.
@@ -191,8 +238,6 @@ This project is licensed under the MIT License.
 - [Sentence Transformers](https://www.sbert.net/) for embeddings
 
 ## 📧 Contact
-
-Your Name - [@yourtwitter]([https://twitter.com/yourtwitter](https://www.linkedin.com/in/ahmed-3-sayed/))
 
 Project Link: [https://github.com/AhmedSayedAbdelrazek/Chatbot-With-RAG](https://github.com/AhmedSayedAbdelrazek/Chatbot-With-RAG)
 
