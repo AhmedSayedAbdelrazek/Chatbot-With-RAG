@@ -199,145 +199,157 @@ async def health_check():
 @app.post("/chat")
 async def chat(request: ChatRequest):
     try:
+        history = get_history(request.session_id)
+
         if request.use_rag:
-            # RAG mode - search documents
             query_embedding = get_embedding_model().encode(request.message).tolist()
+            results = collection.query(query_embeddings=[query_embedding], n_results=3)
 
-            results = collection.query(
-                query_embeddings=[query_embedding],
-                n_results=3
-            )
-
-            if results['documents'] and results['documents'][0]:
-                context = "\n\n".join(results['documents'][0])
-                sources = results['metadatas'][0] if results['metadatas'] else []
-
-                prompt = f"""Based on the following context, answer the question. If the answer is not in the context, say so.
-
-Context:
-{context}
-
-Question: {request.message}
-
-Answer:"""
-                add_to_history(request.session_id, "user", request.message)
-
-                messages = [
-                    {"role": "system",
-                     "content": "You are a helpful assistant. Use ONLY the provided context. If not found, say you don't know."},
-                    {"role": "system", "content": f"Context:\n{context}"},
-                    *get_history(request.session_id),
-                    {"role": "user", "content": request.message},
-                ]
-
-                completion = query_groq(messages, stream=False)
-                response = completion.choices[0].message.content
-
-                add_to_history(request.session_id, "assistant", response)
-
-            else:
+            if not (results.get("documents") and results["documents"][0]):
                 return {
                     "response": "No relevant documents found. Please upload documents first or disable RAG mode.",
                     "sources": [],
-                    "mode": "rag"
+                    "mode": "rag",
                 }
-        else:
-            # Normal chat mode
-            add_to_history(request.session_id, "user", request.message)
+
+            context = "\n\n".join(results["documents"][0])
+            sources = results["metadatas"][0] if results.get("metadatas") else []
 
             messages = [
-                {"role": "system", "content": "You are a helpful assistant. Keep answers concise and clear."},
-                *get_history(request.session_id),
+                {
+                    "role": "system",
+                    "content": (
+                        "You have access to conversation history provided to you. "
+                        "Use it to remember details like the user's name during this session. "
+                        "Use ONLY the provided context to answer. If not found, say you don't know."
+                    ),
+                },
+                {"role": "system", "content": f"Context:\n{context}"},
+                *history,
                 {"role": "user", "content": request.message},
             ]
+
+            # save user AFTER building messages (avoid duplication)
+            add_to_history(request.session_id, "user", request.message)
 
             completion = query_groq(messages, stream=False)
             response = completion.choices[0].message.content
 
             add_to_history(request.session_id, "assistant", response)
 
+            return {"response": response, "sources": sources, "mode": "rag"}
+
+        else:
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You have access to conversation history provided to you. "
+                        "Use it to remember details like the user's name during this session."
+                    ),
+                },
+                *history,
+                {"role": "user", "content": request.message},
+            ]
+
+            add_to_history(request.session_id, "user", request.message)
+
+            completion = query_groq(messages, stream=False)
+            response = completion.choices[0].message.content
+
+            add_to_history(request.session_id, "assistant", response)
+
+            return {"response": response, "mode": "normal"}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
-    """Streaming endpoint for real-time responses"""
-
     async def generate():
         try:
+            history = get_history(request.session_id)
+
             if request.use_rag:
-                # RAG mode - search documents
                 query_embedding = get_embedding_model().encode(request.message).tolist()
+                results = collection.query(query_embeddings=[query_embedding], n_results=3)
 
-                results = collection.query(
-                    query_embeddings=[query_embedding],
-                    n_results=3
-                )
-
-                if results['documents'] and results['documents'][0]:
-                    context = "\n\n".join(results['documents'][0])
-                    sources = results['metadatas'][0] if results['metadatas'] else []
-
-                    # Send sources first
-                    yield f"data: {json.dumps({'sources': sources})}\n\n"
-
-                    prompt = f"""Based on the following context, answer the question. If the answer is not in the context, say so.
-
-Context:
-{context}
-
-Question: {request.message}
-
-Answer:"""
-
-                    # Stream from Groq
-                    stream = query_groq(prompt, stream=True)
-
-                    for chunk in stream:
-                        if chunk.choices[0].delta.content:
-                            content = chunk.choices[0].delta.content
-                            yield f"data: {json.dumps({'content': content})}\n\n"
-
-                    yield f"data: [DONE]\n\n"
-                else:
+                if not (results.get("documents") and results["documents"][0]):
                     error_msg = "No relevant documents found. Please upload documents first or disable RAG mode."
                     yield f"data: {json.dumps({'content': error_msg})}\n\n"
                     yield f"data: [DONE]\n\n"
-            else:
-                # Normal chat mode - stream from Groq
-                # ✅ Add user message to memory
-                add_to_history(request.session_id, "user", request.message)
+                    return
 
-                # ✅ Build messages with memory
+                context = "\n\n".join(results["documents"][0])
+                sources = results["metadatas"][0] if results.get("metadatas") else []
+
+                # send sources first
+                yield f"data: {json.dumps({'sources': sources})}\n\n"
+
                 messages = [
-                    {"role": "system", "content": "You are a helpful assistant. Keep answers concise and clear."},
-                    *get_history(request.session_id),
+                    {
+                        "role": "system",
+                        "content": (
+                            "You have access to conversation history provided to you. "
+                            "Use it to remember details like the user's name during this session. "
+                            "Use ONLY the provided context. If not found, say you don't know."
+                        ),
+                    },
+                    {"role": "system", "content": f"Context:\n{context}"},
+                    *history,
                     {"role": "user", "content": request.message},
                 ]
 
-                # ✅ Stream from Groq
+                # save user AFTER building messages
+                add_to_history(request.session_id, "user", request.message)
+
                 stream = query_groq(messages, stream=True)
 
                 assistant_text = ""
-
                 for chunk in stream:
                     if chunk.choices[0].delta.content:
                         content = chunk.choices[0].delta.content
                         assistant_text += content
                         yield f"data: {json.dumps({'content': content})}\n\n"
 
-                # ✅ Save assistant response in memory
                 add_to_history(request.session_id, "assistant", assistant_text)
-
                 yield f"data: [DONE]\n\n"
 
+            else:
+                messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You have access to conversation history provided to you. "
+                            "Use it to remember details like the user's name during this session."
+                        ),
+                    },
+                    *history,
+                    {"role": "user", "content": request.message},
+                ]
+
+                add_to_history(request.session_id, "user", request.message)
+
+                stream = query_groq(messages, stream=True)
+
+                assistant_text = ""
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        assistant_text += content
+                        yield f"data: {json.dumps({'content': content})}\n\n"
+
+                add_to_history(request.session_id, "assistant", assistant_text)
+                yield f"data: [DONE]\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'content': f'Error: {str(e)}'})}\n\n"
             yield f"data: [DONE]\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
 
 
 @app.post("/upload")
